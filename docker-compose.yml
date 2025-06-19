@@ -1,0 +1,38 @@
+services:
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: dynamodb-local
+    ports:
+      - '8000:8000'
+    volumes:
+      - ./dynamodb-data:/home/dynamodblocal/data
+    command: '-jar DynamoDBLocal.jar -sharedDb -dbPath /home/dynamodblocal/data'
+    networks:
+      - dynamodb-network
+  create-table:
+    image: node:16-slim
+    container_name: create-table
+    volumes:
+      - ./scripts:/app
+    working_dir: /app
+    command: >
+      bash -c "
+        npm install aws-sdk &&
+        node create_table.js
+      "
+    environment:
+      - AWS_ACCESS_KEY_ID=fakeAccessKey
+      - AWS_SECRET_ACCESS_KEY=fakeSecretKey
+      - AWS_DEFAULT_REGION=us-east-1
+      - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+    depends_on:
+      - dynamodb-local
+    networks:
+      - dynamodb-network
+
+networks:
+  dynamodb-network:
+    driver: bridge
+
+volumes:
+  dynamodb-data:

@@ -6,10 +6,15 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['eslint.config.mjs'],
+    ignores: ['eslint.config.mjs', 'scripts'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
+  tseslint.config({
+    rules: {
+      '@typescript-eslint/no-unsafe-call': 'off',
+    },
+  }),
   eslintPluginPrettierRecommended,
   {
     languageOptions: {
@@ -28,7 +33,7 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-floating-promises': 'warn',
-      '@typescript-eslint/no-unsafe-argument': 'warn'
+      '@typescript-eslint/no-unsafe-argument': 'warn',
     },
   },
 );

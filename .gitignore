@@ -15,6 +15,12 @@ lerna-debug.log*
 # OS
 .DS_Store
 
+docker
+dynamodb-data
+scripts/node_modules
+scripts/package-lock.json
+scripts/package.json
+
 # Tests
 /coverage
 /.nyc_output
