@@ -6,7 +6,7 @@ const dynamodb = new AWS.DynamoDB({
   accessKeyId: 'fakeAccessKey',
   secretAccessKey: 'fakeSecretKey',
 });
-const tableName = 'Feedbacks';
+const tableName = 'feedbacks';
 const params = {
   TableName: tableName,
   KeySchema: [{ AttributeName: 'Id', KeyType: 'HASH' }],

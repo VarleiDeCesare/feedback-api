@@ -12,9 +12,11 @@ export class AppService {
         'AWS_DYNAMO_TABLE_NAME is not defined in environment variables',
       );
     }
+
+    console.log('DynamoDB Table Name:', AWS_DYNAMO_TABLE_NAME);
   }
 
-  //FIXME: implement pagination
+  //FIXME: implement pagination later
   async getAll() {
     const { Items, Count } = await dynamoDBClient
       .scan({
