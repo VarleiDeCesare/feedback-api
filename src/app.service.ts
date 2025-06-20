@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { dynamoDBClient } from 'dynamo/dynamoDBClient';
+import { v4 as uuid } from 'uuid';
 
 const { AWS_DYNAMO_TABLE_NAME } = process.env;
 @Injectable()
@@ -13,23 +14,23 @@ export class AppService {
     }
   }
 
+  //FIXME: implement pagination
   async getAll() {
-    const items = await dynamoDBClient()
+    const { Items, Count } = await dynamoDBClient
       .scan({
         TableName: AWS_DYNAMO_TABLE_NAME as string,
       })
       .promise();
-    return items;
+
+    return { data: Items, count: Count };
   }
 
   async createFeedback(data: CreateFeedbackDto) {
-    const id = '123'; //FIXME:
-
-    return await dynamoDBClient()
+    return dynamoDBClient
       .put({
         TableName: AWS_DYNAMO_TABLE_NAME as string,
         Item: {
-          Id: id,
+          Id: uuid(),
           ...data,
         },
       })
