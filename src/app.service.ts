@@ -1,41 +1,20 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
-import { dynamoDBClient } from 'dynamo/dynamoDBClient';
-import { v4 as uuid } from 'uuid';
+import { IFeedbackRepository } from './repositories/feedback-repository.interface';
+import { FindFeedbackDto } from './dto/find-feedback.dto';
 
-const { AWS_DYNAMO_TABLE_NAME } = process.env;
 @Injectable()
 export class AppService {
-  constructor() {
-    if (!AWS_DYNAMO_TABLE_NAME) {
-      throw new Error(
-        'AWS_DYNAMO_TABLE_NAME is not defined in environment variables',
-      );
-    }
+  constructor(
+    @Inject('FeedbackRepository')
+    private readonly repository: IFeedbackRepository,
+  ) {}
 
-    console.log('DynamoDB Table Name:', AWS_DYNAMO_TABLE_NAME);
-  }
-
-  //FIXME: implement pagination later
-  async getAll() {
-    const { Items, Count } = await dynamoDBClient
-      .scan({
-        TableName: AWS_DYNAMO_TABLE_NAME as string,
-      })
-      .promise();
-
-    return { data: Items, count: Count };
+  async getAll(pagination: FindFeedbackDto) {
+    return this.repository.findAll(pagination);
   }
 
   async createFeedback(data: CreateFeedbackDto) {
-    return dynamoDBClient
-      .put({
-        TableName: AWS_DYNAMO_TABLE_NAME as string,
-        Item: {
-          Id: uuid(),
-          ...data,
-        },
-      })
-      .promise();
+    return this.repository.create(data);
   }
 }
