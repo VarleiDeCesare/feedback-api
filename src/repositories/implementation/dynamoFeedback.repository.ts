@@ -1,7 +1,12 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Feedback } from 'src/entities/feedback.entity';
 import { IFeedbackRepository } from '../feedback-repository.interface';
-import { DocumentClient } from 'aws-sdk/clients/dynamodb';
+import {
+  AttributeValue,
+  DynamoDBClient,
+  ScanCommand,
+  ScanCommandInput,
+  PutItemCommand,
+} from '@aws-sdk/client-dynamodb';
 import { dynamoDBClient } from 'dynamo/dynamoDBClient';
 import { v4 as uuid } from 'uuid';
 import { CreateFeedbackDto } from 'src/dto/create-feedback.dto';
@@ -11,7 +16,7 @@ import { FindFeedbackDto } from 'src/dto/find-feedback.dto';
 @Injectable()
 export class DynamoFeedbackRepository implements IFeedbackRepository {
   private readonly tableName: string = process.env.AWS_DYNAMO_TABLE_NAME || '';
-  private readonly dynamo: DocumentClient;
+  private readonly dynamo: DynamoDBClient;
   constructor() {
     if (!this.tableName) {
       throw new Error(
@@ -28,19 +33,19 @@ export class DynamoFeedbackRepository implements IFeedbackRepository {
   }> {
     const { limit, lastKey } = pagination;
 
-    const params: DocumentClient.ScanInput = {
-      TableName: this.tableName,
-      Limit: limit,
-      ExclusiveStartKey: lastKey
-        ? {
-            Id: lastKey,
-          }
-        : undefined,
+    const exclusiveStartKey: Record<string, AttributeValue> | undefined = {
+      ...(lastKey ? { Id: { S: lastKey } } : {}),
     };
 
-    const { Items, LastEvaluatedKey } = await this.dynamo
-      .scan(params)
-      .promise();
+    const params: ScanCommandInput = {
+      TableName: this.tableName,
+      Limit: limit,
+      ExclusiveStartKey: exclusiveStartKey,
+    };
+
+    const { Items, LastEvaluatedKey } = await this.dynamo.send(
+      new ScanCommand(params),
+    );
 
     if (!Items) {
       return { data: [], total: 0 };
@@ -48,41 +53,46 @@ export class DynamoFeedbackRepository implements IFeedbackRepository {
 
     const feedbacks: Feedback[] = Items.map((item) => {
       return {
-        id: item?.Id,
-        comment: item?.comment,
-        rating: Number(item?.rating),
-        username: item?.username,
-        created_at: item?.created_at,
+        id: item?.Id?.S ?? '',
+        comment: item?.comment?.S ?? '',
+        rating: item?.rating?.N ? Number(item.rating.N) : 0,
+        username: item?.username?.S ?? '',
+        created_at: item?.created_at?.S ?? '',
       };
     });
 
-    const { Count: totalRecords } = await this.dynamo
-      .scan({
+    const { Count: totalRecords } = await this.dynamo.send(
+      new ScanCommand({
         TableName: this.tableName,
         Select: 'COUNT',
-      })
-      .promise();
+      }),
+    );
 
     return {
       data: feedbacks,
       total: totalRecords as number,
-      lastKey: LastEvaluatedKey ? LastEvaluatedKey.Id : undefined,
+      lastKey:
+        LastEvaluatedKey && LastEvaluatedKey.Id && 'S' in LastEvaluatedKey.Id
+          ? LastEvaluatedKey.Id.S
+          : undefined,
     };
   }
 
   async create(data: CreateFeedbackDto): Promise<Feedback> {
     const id = uuid();
     const created_at = new Date().toISOString();
-    await this.dynamo
-      .put({
+    await this.dynamo.send(
+      new PutItemCommand({
         TableName: this.tableName,
         Item: {
-          Id: id,
-          ...data,
-          created_at,
+          Id: { S: id },
+          comment: { S: data.comment },
+          rating: { N: data.rating.toString() },
+          username: { S: data.username },
+          created_at: { S: created_at },
         },
-      })
-      .promise();
+      }),
+    );
 
     return {
       id,
