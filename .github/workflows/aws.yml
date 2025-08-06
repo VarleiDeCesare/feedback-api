@@ -8,13 +8,14 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: feedback-service
-
+  CDK_REPO: VarleiDeCesare/feedback-app-iac
+  CDK_REPO_BRANCH: main
 permissions:
   contents: read
 
 jobs:
-  deploy:
-    name: Deploy
+  build-and-push:
+    name: Deploy and Push to Amazon ECR
     runs-on: ubuntu-latest
     environment: homolog
 
@@ -47,3 +48,48 @@ jobs:
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+  update-cdk-and-deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout CDK repository
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ env.CDK_REPO }}
+        token: ${{ secrets.CDK_REPO_TOKEN }}
+        ref: ${{ env.CDK_REPO_BRANCH }}
+    
+    - name: Update image tag in CDK
+      run: |
+        sed -i 's/const IMAGE_TAG = ".*"/const IMAGE_TAG = "${{ steps.vars.outputs.SHORT_SHA }}"/g' lib/config.ts
+    
+    - name: Commit and push changes
+      run: |
+        git config --local user.email "varleidecesare@yahoo.com.br"
+        git config --local user.name "VarleiDeCesare"
+        git add .
+        git commit -m "chore: update image tag to ${{ steps.vars.outputs.SHORT_SHA }}" || exit 0
+        git push
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+    
+    - name: Install CDK dependencies
+      run: npm ci
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Deploy with CDK
+      run: |
+        npx cdk deploy FeedbackApp --require-aproval never
