@@ -33,9 +33,8 @@ export class DynamoFeedbackRepository implements IFeedbackRepository {
   }> {
     const { limit, lastKey } = pagination;
 
-    const exclusiveStartKey: Record<string, AttributeValue> | undefined = {
-      ...(lastKey ? { Id: { S: lastKey } } : {}),
-    };
+    const exclusiveStartKey: Record<string, AttributeValue> | undefined =
+      lastKey ? { Id: { S: lastKey } } : undefined;
 
     const params: ScanCommandInput = {
       TableName: this.tableName,
